@@ -2,7 +2,19 @@
 
 /* หน้าเว็บจับคู่เงินทดรองจ่าย — เรียก API ที่ path เดียวกับหน้านี้ (รองรับการ mount ใต้ path ย่อยของ Plesk) */
 
-const API = new URL('api/', window.location.href.replace(/[^/]*$/, '')).toString();
+/**
+ * รากของ API = โฟลเดอร์ของหน้านี้ + "api/"
+ * รองรับทั้งกรณี /finance/ , /finance (ไม่มี slash ท้าย) และ /finance/index.html
+ */
+const API = (() => {
+  const url = new URL(window.location.href);
+  let dir = url.pathname;
+  if (!dir.endsWith('/')) {
+    const last = dir.slice(dir.lastIndexOf('/') + 1);
+    dir = last.includes('.') ? dir.slice(0, dir.lastIndexOf('/') + 1) : dir + '/';
+  }
+  return new URL(dir + 'api/', url.origin).toString();
+})();
 
 const $ = (sel) => document.querySelector(sel);
 const el = {
@@ -249,6 +261,7 @@ el.tableSearch.addEventListener('input', renderTable);
 const TABLES = {
   debits: {
     head: ['บรรทัด', 'วันที่', 'สมุด', 'ใบสำคัญ', 'คำอธิบาย', 'ยอดเต็ม', 'เคลียร์แล้ว', 'คงเหลือ', 'สถานะ'],
+    numCols: [0, 5, 6, 7],
     rows: (r) => r.unmatchedDebits,
     cells: (x) => [
       cell(x.lineNo, 'num'), cell(x.dateDisplay, 'mono'), cell(x.book), cell(x.voucher, 'mono'),
@@ -260,6 +273,7 @@ const TABLES = {
   },
   credits: {
     head: ['บรรทัด', 'วันที่', 'สมุด', 'ใบสำคัญ', 'คำอธิบาย', 'ยอดเต็ม', 'เคลียร์แล้ว', 'คงเหลือ', 'อ้างถึง'],
+    numCols: [0, 5, 6, 7],
     rows: (r) => r.unmatchedCredits,
     cells: (x) => [
       cell(x.lineNo, 'num'), cell(x.dateDisplay, 'mono'), cell(x.book), cell(x.voucher, 'mono'),
@@ -271,6 +285,7 @@ const TABLES = {
   },
   pairs: {
     head: ['จำนวนเงิน', 'เดบิต (จ่ายเงิน)', 'เครดิต (เคลียร์)', 'เกณฑ์'],
+    numCols: [0],
     rows: (r) => r.pairs,
     cells: (x) => [
       cell(moneyAlways(x.amount), 'num'),
@@ -282,6 +297,7 @@ const TABLES = {
   },
   preview: {
     head: ['วันที่', 'สมุด', 'ใบสำคัญ', 'คำอธิบาย', 'เดบิต', 'เครดิต', 'สถานะ', 'ยอดคงเหลือ'],
+    numCols: [4, 5, 7],
     rows: (r) => r.outstanding,
     cells: (x) => [
       cell(x.dateDisplay, 'mono'), cell(x.book), cell(x.voucher, 'mono'), cell(x.description, 'desc'),
@@ -316,7 +332,7 @@ function renderTable() {
   }
 
   el.dataTable.querySelector('thead').innerHTML =
-    `<tr>${conf.head.map((h, i) => `<th${i >= 5 && state.tab !== 'pairs' ? ' class="num"' : ''}>${esc(h)}</th>`).join('')}</tr>`;
+    `<tr>${conf.head.map((h, i) => `<th${conf.numCols.includes(i) ? ' class="num"' : ''}>${esc(h)}</th>`).join('')}</tr>`;
   el.dataTable.querySelector('tbody').innerHTML = rows
     .map((x) => `<tr${conf.partial(x) ? ' class="partial"' : ''}>${conf.cells(x).join('')}</tr>`)
     .join('');

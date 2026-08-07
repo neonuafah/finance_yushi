@@ -1,0 +1,30 @@
+{
+  "name": "finance_yushi",
+  "version": "1.0.0",
+  "description": "จับคู่รายการเคลียเงินทดรองจ่ายจากรายงานแยกประเภททั่วไป (Excel/PDF) และออกรายงานรายการที่ยังไม่มีคู่",
+  "main": "server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "db:init": "node scripts/init-db.js",
+    "smoke": "node scripts/smoke.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neonuafah/finance_yushi.git"
+  },
+  "license": "UNLICENSED",
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "multer": "^2.2.0",
+    "mysql2": "^3.23.2",
+    "pdfjs-dist": "^6.2.108",
+    "pdfkit": "^0.19.1"
+  }
+}

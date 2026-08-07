@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>จับคู่เงินทดรองจ่าย — ยูชิ ซิสเต็มส์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🧾</text></svg>">
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <h1>จับคู่เงินทดรองจ่าย</h1>
+    <p>อัปโหลดรายงานแยกประเภททั่วไป (Excel หรือ PDF) ระบบจะจับคู่รายการที่เคลียร์แล้ว และออกรายงานเฉพาะรายการที่ยังไม่มีคู่พร้อมยอดคงเหลือใหม่</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ---------- ขั้นที่ 1: อัปโหลด ---------- -->
+  <section class="card" id="uploadCard">
+    <h2><span class="step">1</span> เลือกไฟล์รายงาน</h2>
+
+    <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="เลือกหรือลากไฟล์มาวาง">
+      <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true"><path fill="currentColor" d="M12 3l4 4h-3v6h-2V7H8l4-4zM5 15h14v4H5v-4z"/></svg>
+      <p><strong>ลากไฟล์มาวาง</strong> หรือ <button type="button" class="linklike" id="browseBtn">เลือกไฟล์</button></p>
+      <p class="hint">รองรับ .xlsx และ .pdf ขนาดไม่เกิน 25 MB</p>
+      <input type="file" id="fileInput" accept=".xlsx,.xlsm,.pdf" hidden>
+    </div>
+
+    <div id="fileInfo" class="fileinfo" hidden></div>
+
+    <details class="options">
+      <summary>เกณฑ์การจับคู่ <span class="muted" id="optionSummary"></span></summary>
+      <div id="strategyList" class="strategy-list"></div>
+    </details>
+
+    <div class="actions">
+      <button id="runBtn" class="primary" disabled>ประมวลผล</button>
+      <span id="uploadStatus" class="status"></span>
+    </div>
+  </section>
+
+  <!-- ---------- ขั้นที่ 2: ผลลัพธ์ ---------- -->
+  <section id="results" hidden>
+    <div class="card">
+      <h2><span class="step">2</span> ผลการจับคู่</h2>
+      <div id="reportMeta" class="report-meta"></div>
+      <div id="statGrid" class="stat-grid"></div>
+      <div id="balanceCheck" class="balance-check"></div>
+      <div id="warnings"></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="step">3</span> ดาวน์โหลดรายงาน</h2>
+      <p class="muted">รูปแบบเหมือนรายงานต้นฉบับ แสดงเฉพาะรายการที่ยังไม่มีคู่ พร้อมยอดคงเหลือที่คำนวณใหม่</p>
+      <div class="actions">
+        <a id="dlExcel" class="primary button" href="#">ดาวน์โหลด Excel (.xlsx)</a>
+        <a id="dlPdf" class="secondary button" href="#">ดาวน์โหลด PDF</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="debits" role="tab">เดบิตที่ยังไม่มีคู่ <span class="badge" id="cntDebits">0</span></button>
+        <button class="tab" data-tab="credits" role="tab">เครดิตที่ไม่มีคู่ <span class="badge" id="cntCredits">0</span></button>
+        <button class="tab" data-tab="pairs" role="tab">คู่ที่จับได้ <span class="badge" id="cntPairs">0</span></button>
+        <button class="tab" data-tab="preview" role="tab">ตัวอย่างรายงาน</button>
+      </div>
+      <div class="tablefilter">
+        <input type="search" id="tableSearch" placeholder="ค้นหาเลขใบสำคัญ / คำอธิบาย / จำนวนเงิน">
+      </div>
+      <div class="tablewrap"><table id="dataTable"><thead></thead><tbody></tbody></table></div>
+      <p id="tableEmpty" class="empty" hidden>ไม่มีรายการในหมวดนี้</p>
+    </div>
+  </section>
+
+  <p class="footer" id="footer"></p>
+</main>
+
+<script src="app.js"></script>
+</body>
+</html>

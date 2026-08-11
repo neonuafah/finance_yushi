@@ -14,6 +14,9 @@ const { exportPdf } = require('../exporters/pdf');
 
 const upload = multer({
   storage: multer.memoryStorage(),
+  // เบราว์เซอร์ส่งชื่อไฟล์มาเป็น UTF-8 แต่ multer/busboy ตั้งค่าเริ่มต้นเป็น latin1
+  // ชื่อไฟล์ภาษาไทยจึงกลายเป็นอักขระเพี้ยน (เช่น "à¸à¸´à¸")
+  defParamCharset: 'utf8',
   limits: { fileSize: config.maxUploadBytes, files: 1 },
   fileFilter: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();

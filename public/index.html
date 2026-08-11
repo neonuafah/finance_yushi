@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <!-- ?v= คือเลขรุ่นของไฟล์ static — ต้องเพิ่มเลขทุกครั้งที่แก้ style.css หรือ app.js
      ไม่งั้นเบราว์เซอร์กับ Cloudflare จะใช้ไฟล์เดิมที่แคชไว้ (nginx ตั้ง max-age 4 ชม.) -->
-<link rel="stylesheet" href="style.css?v=2">
+<link rel="stylesheet" href="style.css?v=3">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🧾</text></svg>">
 </head>
 <body>
@@ -28,10 +28,24 @@
       <svg viewBox="0 0 24 24" width="40" height="40" aria-hidden="true"><path fill="currentColor" d="M12 3l4 4h-3v6h-2V7H8l4-4zM5 15h14v4H5v-4z"/></svg>
       <p><strong>ลากไฟล์มาวาง</strong> หรือ <button type="button" class="linklike" id="browseBtn">เลือกไฟล์</button></p>
       <p class="hint">รองรับ .xlsx และ .pdf ขนาดไม่เกิน 25 MB</p>
-      <input type="file" id="fileInput" accept=".xlsx,.xlsm,.pdf" hidden>
     </div>
 
-    <div id="fileInfo" class="fileinfo" hidden></div>
+    <!-- อยู่นอกกล่องลากไฟล์ เพราะกล่องถูกซ่อนตอนมีไฟล์แล้ว แต่ยังต้องเรียก .click() ได้ -->
+    <input type="file" id="fileInput" accept=".xlsx,.xlsm,.pdf" hidden>
+
+    <!-- การ์ดไฟล์ที่เลือกไว้ — แสดงแทนที่กล่องลากไฟล์ กดกากบาทเพื่อเอาออก -->
+    <div id="fileInfo" class="fileinfo" hidden>
+      <svg class="fileicon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <path fill="currentColor" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6zm0 2.5L17.5 8H14V4.5z"/>
+      </svg>
+      <span class="fname" id="fileName"></span>
+      <span class="muted" id="fileSize"></span>
+      <button type="button" class="removefile" id="removeFile" aria-label="เอาไฟล์นี้ออก" title="เอาไฟล์นี้ออก">
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+          <path fill="currentColor" d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7 2.9 18.3 9.2 12 2.9 5.7l1.4-1.4L10.6 10.6l6.3-6.3z"/>
+        </svg>
+      </button>
+    </div>
 
     <div class="actions">
       <button id="runBtn" class="primary" disabled>ประมวลผล</button>
@@ -76,6 +90,6 @@
   <p class="footer" id="footer"></p>
 </main>
 
-<script src="app.js?v=2"></script>
+<script src="app.js?v=3"></script>
 </body>
 </html>

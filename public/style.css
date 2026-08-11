@@ -18,6 +18,10 @@
 
 * { box-sizing: border-box; }
 
+/* กฎ display ของคลาส (เช่น .fileinfo { display: flex }) มีน้ำหนักสูงกว่า [hidden]
+   ของเบราว์เซอร์ ต้องบังคับไว้ ไม่งั้นสั่ง el.hidden = true แล้วยังโผล่อยู่ */
+[hidden] { display: none !important; }
+
 html { -webkit-text-size-adjust: 100%; }
 
 body {
@@ -91,17 +95,57 @@ main.wrap { padding-top: 22px; padding-bottom: 48px; }
   text-decoration: underline; cursor: pointer;
 }
 
+/* การ์ดไฟล์ที่เลือกไว้ — ขึ้นแทนที่กล่องลากไฟล์ */
 .fileinfo {
-  margin-top: 12px;
-  padding: 10px 14px;
+  padding: 12px 14px;
   background: #f0f7fa;
   border: 1px solid #cfe3ea;
-  border-radius: 8px;
+  border-radius: var(--radius);
   font-size: .92rem;
   display: flex;
-  justify-content: space-between;
+  align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+}
+.fileinfo .fileicon { color: var(--brand); flex: none; }
+.fileinfo .fname {
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* ดันขนาดไฟล์กับปุ่มกากบาทไปชิดขวา */
+.fileinfo .muted { margin-left: auto; flex: none; white-space: nowrap; }
+
+.removefile {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: background .15s, color .15s, border-color .15s;
+}
+.removefile:hover {
+  background: var(--bad-bg);
+  color: var(--bad);
+}
+.removefile:focus-visible {
+  outline: none;
+  border-color: var(--brand);
+  color: var(--ink);
+}
+.removefile:disabled {
+  opacity: .4;
+  cursor: default;
+  background: none;
+  color: var(--muted);
 }
 
 

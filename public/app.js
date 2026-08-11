@@ -22,6 +22,9 @@ const el = {
   fileInput: $('#fileInput'),
   browseBtn: $('#browseBtn'),
   fileInfo: $('#fileInfo'),
+  fileName: $('#fileName'),
+  fileSize: $('#fileSize'),
+  removeFile: $('#removeFile'),
   runBtn: $('#runBtn'),
   uploadStatus: $('#uploadStatus'),
   results: $('#results'),
@@ -73,6 +76,7 @@ async function loadStrategies() {
 
 /* ---------------- เลือกไฟล์ ---------------- */
 
+/** เลือกไฟล์แล้ว — เก็บกล่องลากไฟล์ แล้วโชว์การ์ดไฟล์แทน */
 function setFile(file) {
   if (!file) return;
   const ok = /\.(xlsx|xlsm|pdf)$/i.test(file.name);
@@ -82,13 +86,30 @@ function setFile(file) {
     return;
   }
   state.file = file;
+  el.fileName.textContent = file.name;
+  el.fileName.title = file.name; // ชื่อยาวถูกตัดด้วย ellipsis — ให้ชี้ดูชื่อเต็มได้
+  el.fileSize.textContent = `${(file.size / 1024).toFixed(0)} KB`;
   el.fileInfo.hidden = false;
-  el.fileInfo.innerHTML = `<span><strong>${esc(file.name)}</strong></span><span class="muted">${(file.size / 1024).toFixed(0)} KB</span>`;
+  el.dropzone.hidden = true;
   el.runBtn.disabled = false;
   el.uploadStatus.textContent = '';
   el.uploadStatus.className = 'status';
 }
 
+/** เอาไฟล์ออก — กลับไปแสดงกล่องลากไฟล์ ผลลัพธ์เดิมยังอยู่ให้ดาวน์โหลดต่อได้ */
+function clearFile() {
+  if (state.busy) return;
+  state.file = null;
+  el.fileInput.value = ''; // เคลียร์ค่าใน input ไม่งั้นเลือกไฟล์เดิมซ้ำแล้วไม่เกิด change
+  el.fileInfo.hidden = true;
+  el.dropzone.hidden = false;
+  el.runBtn.disabled = true;
+  el.uploadStatus.textContent = '';
+  el.uploadStatus.className = 'status';
+  el.dropzone.focus();
+}
+
+el.removeFile.addEventListener('click', clearFile);
 el.browseBtn.addEventListener('click', (e) => { e.stopPropagation(); el.fileInput.click(); });
 el.dropzone.addEventListener('click', () => el.fileInput.click());
 el.dropzone.addEventListener('keydown', (e) => {
@@ -109,6 +130,7 @@ el.dropzone.addEventListener('drop', (e) => setFile(e.dataTransfer.files[0]));
 function setBusy(busy, message) {
   state.busy = busy;
   el.runBtn.disabled = busy || !state.file;
+  el.removeFile.disabled = busy; // กันเอาไฟล์ออกระหว่างกำลังประมวลผล
   el.uploadStatus.textContent = message || '';
   el.uploadStatus.className = busy ? 'status busy' : 'status';
 }

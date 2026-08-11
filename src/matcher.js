@@ -33,6 +33,12 @@ const STRATEGIES = [
     defaultOn: true,
   },
   {
+    key: 'partyExact',
+    label: 'ยอดตรงกันพอดี + คำอธิบายอ้างถึงคู่ค้ารายเดียวกัน',
+    confidence: 60,
+    defaultOn: true,
+  },
+  {
     key: 'jobPartial',
     label: 'อ้างเลขงาน SO/PO เดียวกัน (ยอดไม่ตรงพอดี)',
     confidence: 45,
@@ -47,6 +53,42 @@ const STRATEGIES = [
 ];
 
 const DEFAULT_OPTIONS = Object.fromEntries(STRATEGIES.map((s) => [s.key, s.defaultOn]));
+
+/** ความยาวขั้นต่ำของชื่อคู่ค้าที่ต้องตรงกัน (นับเป็นอักขระไทย) */
+const MIN_PARTY = 5;
+
+/**
+ * คำที่โผล่ในคำอธิบายแทบทุกบรรทัด ไม่ได้บ่งชี้ว่าเป็นคู่ค้ารายไหน
+ * ต้องตัดทิ้งก่อนเทียบ ไม่งั้นจะจับคู่ผิดเพราะคำว่า "เงินทดลอง" ตรงกัน
+ */
+const GENERIC_WORDS =
+  /(เงินทดลองจ่าย|เงินทดลอง|เงินทดรองจ่าย|เงินทดรอง|ชำระหนี้ให้|ชำระหนี้|เคลียร์|เคลีย|บริษัท|จำกัด|มหาชน|ประเทศไทย|สาขา|หจก|บจก|บจ|หสม|มัดจำ|ค่าใช้จ่าย|ค่าจ้าง|ค่าแรง|ค่าของ|ค่าขน|ค่ารถ|บัตรเครดิต|ค่าน้ำมัน)/g;
+
+/**
+ * เหลือเฉพาะตัวอักษรไทยที่บ่งชี้ชื่อคู่ค้า — ตัดเลขเอกสาร ตัวเลข และคำทั่วไปออก
+ * เช่น "ชำระหนี้ให้   บริษัท ดราก้อน แอร์ ดักท์ จำกัด" -> "ดราก้อนแอร์ดักท์"
+ */
+function partyText(description) {
+  return String(description || '')
+    .replace(/[A-Za-z]{2,}\d{4,}/g, ' ') // เลขเอกสาร PV/PS/SO/PO/JV
+    .replace(GENERIC_WORDS, ' ')
+    .replace(/[^ก-๛]+/g, '') // เหลือเฉพาะอักษรไทย (ตัดช่องว่างและวรรคตอนทิ้ง)
+    .trim();
+}
+
+/**
+ * ชื่อคู่ค้าถือว่าตรงกันเมื่อมีสตริงย่อยที่ยาวพอปรากฏทั้งสองฝั่ง
+ * ใช้สตริงย่อยแทนการตัดคำ เพราะคำอธิบายเขียนติดกันและสะกดไม่เหมือนกันเป๊ะ
+ * (เช่น "หจก.มั่นคงสตีล" กับ "หจก. ค้ามั่นคงสตีล")
+ */
+function sharesParty(a, b) {
+  if (a.length < MIN_PARTY || b.length < MIN_PARTY) return false;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  for (let i = 0; i + MIN_PARTY <= short.length; i += 1) {
+    if (long.includes(short.slice(i, i + MIN_PARTY))) return true;
+  }
+  return false;
+}
 
 function defaultOptions() {
   return { ...DEFAULT_OPTIONS };
@@ -196,7 +238,27 @@ function matchEntries(entries, options = {}) {
     return null;
   });
 
-  // 4) อ้างเลขงาน SO/PO เดียวกัน แต่ยอดไม่ตรงพอดี
+  // 4) ยอดตรงกันพอดี และคำอธิบายทั้งสองฝั่งอ้างถึงคู่ค้ารายเดียวกัน
+  //    ครอบคลุมกรณีจ่ายชำระหนี้ (PS) ที่เขียนแต่ชื่อผู้ขาย ไม่ได้อ้างเลขใบสำคัญหรือเลขงาน
+  //    เช่น "25%ดราก้อน งานติดตั้ง..." คู่กับ "ชำระหนี้ให้ บริษัท ดราก้อน แอร์ ดักท์ จำกัด"
+  //    เกณฑ์นี้เดินรอบเดียว — บังคับให้รายการเคลียร์เกิดหลังรายการจ่ายเงินเสมอ
+  //    เพราะชื่อคู่ค้าเป็นหลักฐานที่อ่อนกว่าเลขเอกสาร ถ้ายอมให้ย้อนวันด้วยจะไปคว้า
+  //    รายการของคู่ค้าเดียวกันที่เกิดคนละงานคนละเดือน
+  runPass(byKey.partyExact, (c, cs) => {
+    const cParty = partyText(c.description);
+    if (cParty.length < MIN_PARTY) return null;
+    const hits = debits.filter(
+      (d) =>
+        d.lineNo !== c.lineNo &&
+        open(d) &&
+        nearlyEqual(state.get(d.lineNo).remaining, cs.remaining) &&
+        inOrder(d, c) &&
+        sharesParty(cParty, partyText(d.description)),
+    );
+    return hits.length ? rank(hits, c)[0] || null : null;
+  });
+
+  // 5) อ้างเลขงาน SO/PO เดียวกัน แต่ยอดไม่ตรงพอดี
   runChronological(byKey.jobPartial, (c, cs, ordered) => {
     for (const job of c.jobRefs) {
       const cands = rank(byJob.get(job) || [], c).filter((d) => !ordered || inOrder(d, c));
@@ -205,7 +267,7 @@ function matchEntries(entries, options = {}) {
     return null;
   });
 
-  // 5) ยอดตรงกันพอดี และเหลือผู้เข้าคู่เพียงรายเดียวเท่านั้น
+  // 6) ยอดตรงกันพอดี และเหลือผู้เข้าคู่เพียงรายเดียวเท่านั้น
   runChronological(byKey.amountUnique, (c, cs, ordered) => {
     const hit = debits.filter(
       (d) =>

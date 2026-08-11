@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>จับคู่เงินทดลองจ่าย — ยูชิ ซิสเต็มส์</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="style.css">
+<!-- ?v= คือเลขรุ่นของไฟล์ static — ต้องเพิ่มเลขทุกครั้งที่แก้ style.css หรือ app.js
+     ไม่งั้นเบราว์เซอร์กับ Cloudflare จะใช้ไฟล์เดิมที่แคชไว้ (nginx ตั้ง max-age 4 ชม.) -->
+<link rel="stylesheet" href="style.css?v=2">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🧾</text></svg>">
 </head>
 <body>
@@ -74,6 +76,6 @@
   <p class="footer" id="footer"></p>
 </main>
 
-<script src="app.js"></script>
+<script src="app.js?v=2"></script>
 </body>
 </html>

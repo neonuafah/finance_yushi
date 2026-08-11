@@ -41,21 +41,30 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: err.message || 'เกิดข้อผิดพลาดภายในระบบ' });
 });
 
-async function start() {
-  const status = await db.checkConnection();
-  if (status.available) {
-    try {
-      await db.migrate();
-      console.log('[db] เชื่อมต่อและตรวจสอบตารางเรียบร้อย');
-    } catch (err) {
-      console.warn('[db] สร้างตารางไม่สำเร็จ:', err.message);
+/**
+ * ตรวจฐานข้อมูลแบบไม่บล็อกการสตาร์ท — ถ้า DB ช้าหรือไม่ตอบ แอปต้องยังเปิดรับ request ได้
+ * (Passenger บน Plesk ฆ่า process ที่ยังไม่ listen ภายใน 90 วินาที)
+ */
+async function initDb() {
+  try {
+    const status = await db.checkConnection();
+    if (!status.available) {
+      console.warn('[db] ใช้งานฐานข้อมูลไม่ได้:', status.error, '— ระบบจะทำงานต่อโดยไม่บันทึกประวัติ');
+      return;
     }
-  } else {
-    console.warn('[db] ใช้งานฐานข้อมูลไม่ได้:', status.error, '— ระบบจะทำงานต่อโดยไม่บันทึกประวัติ');
+    await db.migrate();
+    console.log('[db] เชื่อมต่อและตรวจสอบตารางเรียบร้อย');
+  } catch (err) {
+    console.warn('[db] เตรียมฐานข้อมูลไม่สำเร็จ:', err.message);
   }
+}
+
+function start() {
+  console.log(`[server] กำลังเริ่มระบบ (node ${process.version}, env ${config.env})`);
 
   const server = app.listen(config.port, () => {
     console.log(`[server] พร้อมใช้งานที่ port ${config.port}${config.basePath || ''}`);
+    initDb();
   });
 
   const shutdown = async (signal) => {

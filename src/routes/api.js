@@ -152,6 +152,7 @@ router.post('/upload', upload.single('file'), async (req, res, next) => {
     });
 
     await runMatch(job, options);
+    store.save(job);
     res.json(toResponse(job));
   } catch (err) {
     next(err);
@@ -163,6 +164,7 @@ router.post('/jobs/:id/rematch', express.json(), async (req, res, next) => {
     const job = store.get(req.params.id);
     if (!job) return res.status(404).json({ error: 'ไม่พบผลลัพธ์ (อาจหมดอายุแล้ว) กรุณาอัปโหลดไฟล์ใหม่' });
     await runMatch(job, readOptions(req.body && req.body.options));
+    store.save(job);
     res.json(toResponse(job));
   } catch (err) {
     next(err);

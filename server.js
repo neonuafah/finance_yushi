@@ -77,6 +77,8 @@ function start() {
   process.on('SIGINT', () => shutdown('SIGINT'));
 }
 
-if (require.main === module) start();
+// Passenger (Plesk) ไม่ได้รันไฟล์นี้ตรงๆ แต่ require เข้ามาจาก node-loader.js
+// require.main จึงไม่ใช่ไฟล์นี้ ต้องเช็ค IN_PASSENGER ด้วย ไม่งั้นแอปจะไม่เคย listen
+if (require.main === module || process.env.IN_PASSENGER) start();
 
 module.exports = { app, start };

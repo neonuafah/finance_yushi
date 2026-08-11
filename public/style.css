@@ -104,17 +104,6 @@ main.wrap { padding-top: 22px; padding-bottom: 48px; }
   flex-wrap: wrap;
 }
 
-/* ---------- options ---------- */
-.options { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 12px; }
-.options summary { cursor: pointer; font-weight: 600; }
-.strategy-list { margin-top: 10px; display: grid; gap: 8px; }
-.strategy {
-  display: flex; gap: 10px; align-items: flex-start;
-  padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px;
-}
-.strategy input { margin-top: 4px; flex: none; }
-.strategy .name { font-weight: 600; }
-.strategy .conf { font-size: .8rem; color: var(--muted); }
 
 /* ---------- buttons ---------- */
 .actions { margin-top: 16px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }

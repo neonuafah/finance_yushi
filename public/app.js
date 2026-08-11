@@ -24,8 +24,6 @@ const el = {
   fileInfo: $('#fileInfo'),
   runBtn: $('#runBtn'),
   uploadStatus: $('#uploadStatus'),
-  strategyList: $('#strategyList'),
-  optionSummary: $('#optionSummary'),
   results: $('#results'),
   reportMeta: $('#reportMeta'),
   statGrid: $('#statGrid'),
@@ -42,7 +40,6 @@ const el = {
 const state = {
   file: null,
   strategies: [],
-  options: {},
   result: null,
   tab: 'debits',
   busy: false,
@@ -58,47 +55,20 @@ const money = (n) => {
 const moneyAlways = (n) => money(n) || '0.00';
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-/* ---------------- ตัวเลือกเกณฑ์การจับคู่ ---------------- */
+/* ---------------- เกณฑ์การจับคู่ ---------------- */
 
+/**
+ * หน้าเว็บไม่ให้เลือกเกณฑ์ — ใช้ค่าเริ่มต้นของเซิร์ฟเวอร์เสมอ
+ * ที่ดึงรายการเกณฑ์มาก็เพื่อเอาชื่อไปแสดงในตาราง "คู่ที่จับได้" เท่านั้น
+ */
 async function loadStrategies() {
   try {
     const res = await fetch(API + 'strategies');
     const data = await res.json();
     state.strategies = data.strategies;
-    state.options = { ...data.defaults };
-    renderStrategies();
   } catch {
-    el.uploadStatus.textContent = 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้';
-    el.uploadStatus.className = 'status error';
+    state.strategies = []; // ไม่มีชื่อเกณฑ์ก็แสดงเป็นรหัสแทน ไม่กระทบการใช้งาน
   }
-}
-
-function renderStrategies() {
-  el.strategyList.innerHTML = state.strategies
-    .map(
-      (s) => `
-      <label class="strategy">
-        <input type="checkbox" data-key="${esc(s.key)}" ${state.options[s.key] ? 'checked' : ''}>
-        <span>
-          <span class="name">${esc(s.label)}</span><br>
-          <span class="conf">ความมั่นใจ ${s.confidence}%</span>
-        </span>
-      </label>`,
-    )
-    .join('');
-  el.strategyList.querySelectorAll('input[data-key]').forEach((input) => {
-    input.addEventListener('change', () => {
-      state.options[input.dataset.key] = input.checked;
-      updateOptionSummary();
-      if (state.result) rematch();
-    });
-  });
-  updateOptionSummary();
-}
-
-function updateOptionSummary() {
-  const on = state.strategies.filter((s) => state.options[s.key]).length;
-  el.optionSummary.textContent = `(เปิดใช้ ${on} จาก ${state.strategies.length} เกณฑ์)`;
 }
 
 /* ---------------- เลือกไฟล์ ---------------- */
@@ -149,7 +119,6 @@ el.runBtn.addEventListener('click', async () => {
   try {
     const form = new FormData();
     form.append('file', state.file);
-    form.append('options', JSON.stringify(state.options));
     const res = await fetch(API + 'upload', { method: 'POST', body: form });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'ประมวลผลไม่สำเร็จ');
@@ -163,27 +132,6 @@ el.runBtn.addEventListener('click', async () => {
     el.uploadStatus.className = 'status error';
   }
 });
-
-async function rematch() {
-  if (!state.result || state.busy) return;
-  setBusy(true, 'กำลังจับคู่ใหม่');
-  try {
-    const res = await fetch(`${API}jobs/${state.result.jobId}/rematch`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ options: state.options }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'จับคู่ใหม่ไม่สำเร็จ');
-    state.result = data;
-    render();
-    setBusy(false, '');
-  } catch (err) {
-    setBusy(false, '');
-    el.uploadStatus.textContent = err.message;
-    el.uploadStatus.className = 'status error';
-  }
-}
 
 /* ---------------- แสดงผล ---------------- */
 

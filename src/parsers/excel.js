@@ -122,6 +122,7 @@ async function parseExcel(buffer) {
   meta.periodLine = headerLines[2] || '';
   meta.accountLine = headerLines[3] || '';
   meta.headerLines = headerLines;
+  meta.sheetName = sheet.name;
 
   const entries = [];
   let lineNo = 0;

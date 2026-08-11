@@ -42,12 +42,22 @@ function normalizePua(str, unknown) {
     return str;
   }
   PUA_RANGE.lastIndex = 0;
-  return str.replace(PUA_RANGE, (ch) => {
-    const mapped = THAI_PUA[ch.codePointAt(0)];
-    if (mapped !== undefined) return mapped;
-    if (unknown) unknown.add(ch.codePointAt(0));
-    return '';
-  });
+  return composeSaraAm(
+    str.replace(PUA_RANGE, (ch) => {
+      const mapped = THAI_PUA[ch.codePointAt(0)];
+      if (mapped !== undefined) return mapped;
+      if (unknown) unknown.add(ch.codePointAt(0));
+      return '';
+    }),
+  );
+}
+
+/**
+ * ฟอนต์ในไฟล์ PDF เขียนสระอำเป็นนิคหิต + สระอา (ํา) ประกอบกลับเป็น "ำ" ตัวเดียว
+ * เพื่อให้ข้อความตรงกับที่อ่านได้จากไฟล์ Excel และแสดงผลถูกต้อง
+ */
+function composeSaraAm(str) {
+  return str.includes('ํา') ? str.replace(/ํา/g, 'ำ') : str;
 }
 
 /** อักขระไทยที่ไม่กินความกว้าง: สระอิ-อือ, ไม้ไต่คู้, วรรณยุกต์, การันต์, พินทุ */

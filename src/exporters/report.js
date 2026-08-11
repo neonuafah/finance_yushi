@@ -20,6 +20,10 @@ const COLUMNS = [
   { key: 'balance', label: 'ยอดคงเหลือ', width: 16, align: 'right', money: true },
 ];
 
+/** ต้นฉบับใช้ตัวอักษรสั้นๆ ในช่อง "สถานะ" พร้อมหมายเหตุท้ายรายงาน — ทำแบบเดียวกัน */
+const STATUS_NOTE =
+  "          * จะหมายถึงว่า เป็นรายการที่ถูกเคลียร์ไปแล้วบางส่วน ยอดที่แสดงคือส่วนที่ยังไม่มีคู่";
+
 function thaiToday() {
   const d = new Date();
   const pad = (n) => String(n).padStart(2, '0');
@@ -36,13 +40,14 @@ function buildReport(job) {
 
   const body = rows.map((r) => ({
     lineNo: r.lineNo,
+    date: r.date,
     dateDisplay: r.dateDisplay,
     book: r.book,
     voucher: r.voucher,
     description: r.description,
     debit: r.outDebit,
     credit: r.outCredit,
-    status: r.matchState === 'จับคู่บางส่วน' ? 'บางส่วน' : '',
+    status: r.matchState === 'จับคู่บางส่วน' ? '*' : '',
     balance: r.runningBalance,
     side: r.side,
     originalAmount: r.originalAmount,
@@ -57,10 +62,15 @@ function buildReport(job) {
     columns: COLUMNS,
     header: {
       company: meta.company || '',
-      title: `${meta.reportTitle || 'รายงานแยกประเภททั่วไป'} — รายการเงินทดลองจ่ายที่ยังไม่มีคู่`,
+      title: meta.reportTitle || 'รายงานแยกประเภททั่วไป',
+      // ต่อท้ายหัวรายงานให้รู้ว่าเป็นฉบับที่ตัดรายการที่จับคู่แล้วออก ไม่ใช่รายงานต้นฉบับ
+      subtitle: 'เฉพาะรายการที่ยังไม่มีคู่',
       periodLine: meta.periodLine || '',
       accountLine: meta.accountLine || '',
-      printedAt: `วันที่พิมพ์ : ${thaiToday()}`,
+      // บรรทัดหัวรายงานดิบจากไฟล์ต้นฉบับ ใช้พิมพ์ซ้ำให้เหมือนเดิมทุกตัวอักษร
+      lines: meta.headerLines || [],
+      sheetName: meta.sheetName || '',
+      printedAt: thaiToday(),
       sourceName: job.originalName || '',
     },
     opening: {
@@ -86,4 +96,4 @@ function buildReport(job) {
   };
 }
 
-module.exports = { buildReport, COLUMNS, formatAmount, thaiToday };
+module.exports = { buildReport, COLUMNS, STATUS_NOTE, formatAmount, thaiToday };

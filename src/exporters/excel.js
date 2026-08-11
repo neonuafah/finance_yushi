@@ -1,15 +1,40 @@
 'use strict';
 
 const ExcelJS = require('exceljs');
-const { buildReport } = require('./report');
+const { buildReport, STATUS_NOTE } = require('./report');
 
-const MONEY = '#,##0.00;(#,##0.00)';
-const FONT = { name: 'Tahoma', size: 10 };
-const FONT_BOLD = { name: 'Tahoma', size: 10, bold: true };
+/*
+ * ออกไฟล์ Excel ให้หน้าตาและการจัดวางเหมือนรายงานแยกประเภททั่วไปต้นฉบับ
+ * ทุกค่าด้านล่างวัดมาจากไฟล์ต้นฉบับจริง (ความกว้างคอลัมน์ ฟอนต์ รูปแบบตัวเลข
+ * ตำแหน่งหัวรายงาน แถวรวม และหมายเหตุท้ายรายงาน)
+ *
+ *   แถว 1  ชื่อบริษัท + เลขหน้า          แถว 5  หัวตาราง
+ *   แถว 2  ชื่อรายงาน                    แถว 6  เลขที่บัญชี + ยอดยกมา
+ *   แถว 3  ช่วงวันที่ + วันที่พิมพ์        แถว 7+ รายการ
+ *   แถว 4  ช่วงเลขที่บัญชี               ท้าย   รวม / รวมทั้งสิ้น / หมายเหตุ
+ *
+ * ต่างจากต้นฉบับตรงที่แสดงเฉพาะรายการที่ยังไม่มีคู่ และยอดคงเหลือคำนวณใหม่
+ */
+
+/** รูปแบบบัญชีของต้นฉบับ — จัดหลักทศนิยมตรงกัน และแสดง 0 เป็นขีด */
+const ACC_FMT = '_-* #,##0.00_-;-* #,##0.00_-;_-* "-"??_-;_-@_-';
+const DATE_FMT = 'mm-dd-yy';
+const FONT = { name: 'Tahoma', size: 11 };
 
 /**
- * ออกไฟล์ Excel หน้าตาตามรายงานแยกประเภททั่วไปต้นฉบับ
- * โดยแสดงเฉพาะรายการที่ยังไม่มีคู่ พร้อมยอดคงเหลือที่คำนวณใหม่
+ * ความกว้างคอลัมน์ A–H ตามต้นฉบับ (null = ใช้ค่าเริ่มต้นเหมือนต้นฉบับ)
+ * หมายเหตุ: ExcelJS ถือว่า 9 เป็นค่าเริ่มต้นจึงไม่เขียนลงไฟล์ คอลัมน์ G (สถานะ)
+ * เลยกว้าง 8.43 ตามค่าเริ่มต้นของ Excel — ต่างจากต้นฉบับเล็กน้อยจนมองไม่ออก
+ */
+const WIDTHS = [10.75, null, 10.875, 51.375, 13.125, 13.125, 9, 13.125];
+
+const HEAD_LABELS = ['วันที่', 'สมุด', 'ใบสำคัญ', 'คำอธิบาย', 'เดบิต', 'เครดิต', 'สถานะ', 'ยอดคงเหลือ'];
+
+const NOTE_1 = "หมายเหตุ  ในช่อง 'สถานะ' ถ้ามีอักษร C จะหมายถึงว่า เป็นรายการที่ถูกยกเลิก";
+const NOTE_2 =
+  '                          E จะหมายถึงว่า เป็นรายการที่แก้ไขเพิ่มเติม หลังจากผ่านบัญชีแล้ว (แก้ไขแบบมีร่องรอย)';
+
+/**
  * @param {object} job
  * @returns {Promise<Buffer>}
  */
@@ -19,151 +44,148 @@ async function exportExcel(job) {
   wb.creator = 'ระบบจับคู่เงินทดลองจ่าย';
   wb.created = new Date();
 
-  const ws = wb.addWorksheet('รายการที่ยังไม่มีคู่', {
-    views: [{ state: 'frozen', ySplit: 8 }],
-    pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
-  });
-
-  const cols = report.columns;
-  ws.columns = cols.map((c) => ({ key: c.key, width: c.width }));
-  const lastCol = cols.length;
-  const colLetter = (n) => ws.getColumn(n).letter;
-  const span = (row) => `A${row}:${colLetter(lastCol)}${row}`;
+  const ws = wb.addWorksheet(sheetName(report));
 
   let r = 0;
-  const put = (text, font = FONT, align = 'left') => {
+
+  /** ข้อความยาวบรรทัดเดียวใน A เหมือนต้นฉบับ (ล้นไปคอลัมน์ข้างๆ ได้) */
+  const textRow = (text) => {
     r += 1;
-    ws.mergeCells(span(r));
-    const cell = ws.getCell(`A${r}`);
-    cell.value = text;
-    cell.font = font;
-    cell.alignment = { horizontal: align, vertical: 'middle' };
+    if (text) ws.getCell(r, 1).value = text;
     return r;
   };
 
-  // ---- หัวรายงาน ----
-  put(report.header.company, { name: 'Tahoma', size: 12, bold: true });
-  put(report.header.title, FONT_BOLD, 'center');
-  put(report.header.periodLine, FONT);
-  put(report.header.accountLine, FONT);
-  put(`${report.header.printedAt}    แหล่งข้อมูล : ${report.header.sourceName}`, {
-    name: 'Tahoma',
-    size: 9,
-    italic: true,
-  });
+  const moneyCell = (row, col, value) => {
+    const cell = ws.getCell(row, col);
+    cell.value = value === 0 || value === null || value === undefined ? null : value;
+    cell.numFmt = ACC_FMT;
+    cell.font = FONT;
+    return cell;
+  };
 
-  // ---- หัวตาราง ----
+  // ---- แถว 1–4: หัวรายงาน (ใช้บรรทัดดิบจากต้นฉบับถ้ามี) ----
+  const src = report.header.lines || [];
+  textRow(src[0] || report.header.company);
+  textRow(`${report.header.title}   (${report.header.subtitle})`);
+  textRow(src[2] || report.header.periodLine);
+  textRow(src[3] || report.header.accountLine);
+
+  // ---- แถว 5: หัวตาราง ----
   r += 1;
-  const headerRow = ws.getRow(r);
-  cols.forEach((c, i) => {
-    const cell = headerRow.getCell(i + 1);
-    cell.value = c.label;
-    cell.font = FONT_BOLD;
-    cell.alignment = { horizontal: c.align === 'right' ? 'right' : 'center', vertical: 'middle' };
-    cell.border = { top: { style: 'thin' }, bottom: { style: 'double' } };
+  HEAD_LABELS.forEach((label, i) => {
+    const cell = ws.getCell(r, i + 1);
+    cell.value = label;
+    // ต้นฉบับใส่ฟอนต์/รูปแบบบัญชีไว้ที่หัวคอลัมน์ตัวเลขด้วย
+    if (i >= 4) {
+      cell.font = FONT;
+      cell.numFmt = ACC_FMT;
+    }
   });
-  headerRow.commit();
-  const headerRowNo = r;
 
-  // ---- ยอดยกมา ----
+  // ---- แถว 6: เลขที่บัญชี ชื่อบัญชี ยอดยกมา ----
   r += 1;
-  const opening = ws.getRow(r);
-  opening.getCell(1).value = report.opening.accountCode;
-  opening.getCell(3).value = report.opening.accountName;
-  opening.getCell(4).value = 'ยอดยกมา';
-  opening.getCell(lastCol).value = report.opening.balance;
-  opening.getCell(lastCol).numFmt = MONEY;
-  opening.eachCell({ includeEmpty: false }, (cell) => {
-    cell.font = FONT_BOLD;
-  });
-  opening.commit();
+  ws.getCell(r, 1).value = report.opening.accountCode || '';
+  ws.getCell(r, 3).value = report.opening.accountName || '';
+  moneyCell(r, 8, report.opening.balance);
 
-  // ---- รายการ ----
-  const firstDataRow = r + 1;
+  // ---- แถว 7 เป็นต้นไป: รายการที่ยังไม่มีคู่ ----
   for (const item of report.body) {
     r += 1;
-    const row = ws.getRow(r);
-    cols.forEach((c, i) => {
-      const cell = row.getCell(i + 1);
-      const value = item[c.key];
-      cell.value = c.money ? (value === 0 ? null : value) : value || '';
-      cell.font = FONT;
-      if (c.money) cell.numFmt = MONEY;
-      cell.alignment = {
-        horizontal: c.align === 'center' ? 'center' : c.align,
-        vertical: 'top',
-        wrapText: c.key === 'description',
-      };
-    });
-    if (item.partial) {
-      // เคลียร์ไปแล้วบางส่วน — เน้นให้เห็นว่ายอดที่เหลือไม่ใช่ยอดเต็มของใบสำคัญ
-      row.getCell(7).note = `ยอดเต็ม ${item.originalAmount.toFixed(2)} เคลียร์แล้ว ${item.matchedAmount.toFixed(2)}`;
-      cols.forEach((_, i) => {
-        row.getCell(i + 1).fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFFFF6E0' },
-        };
-      });
+    const dateCell = ws.getCell(r, 1);
+    const be = buddhistDate(item.date);
+    if (be) {
+      dateCell.value = be;
+      dateCell.numFmt = DATE_FMT;
+      dateCell.font = FONT;
+    } else {
+      dateCell.value = item.dateDisplay || '';
     }
-    row.commit();
+    if (item.book) ws.getCell(r, 2).value = item.book;
+    if (item.voucher) ws.getCell(r, 3).value = item.voucher;
+    if (item.description) ws.getCell(r, 4).value = item.description;
+    moneyCell(r, 5, item.debit);
+    moneyCell(r, 6, item.credit);
+    if (item.status) ws.getCell(r, 7).value = item.status;
+    moneyCell(r, 8, item.balance);
+
+    if (item.partial) {
+      // เคลียร์ไปแล้วบางส่วน — เก็บรายละเอียดไว้เป็นคอมเมนต์ ไม่รบกวนหน้าตารายงาน
+      ws.getCell(r, 7).note = `ยอดเต็ม ${item.originalAmount.toFixed(2)} เคลียร์แล้ว ${item.matchedAmount.toFixed(2)}`;
+    }
   }
-  const lastDataRow = r;
 
   // ---- แถวรวม ----
   r += 1;
-  const totalRow = ws.getRow(r);
-  totalRow.getCell(4).value = `รวม ${report.totals.rowCount} รายการที่ยังไม่มีคู่`;
-  totalRow.getCell(5).value = report.totals.debit;
-  totalRow.getCell(6).value = report.totals.credit;
-  totalRow.getCell(lastCol).value = report.totals.closingBalance;
-  [5, 6, lastCol].forEach((i) => {
-    totalRow.getCell(i).numFmt = MONEY;
-  });
-  totalRow.eachCell({ includeEmpty: false }, (cell) => {
-    cell.font = FONT_BOLD;
-    cell.border = { top: { style: 'thin' }, bottom: { style: 'double' } };
-  });
-  totalRow.commit();
+  ws.getCell(r, 1).value = 'รวม';
+  moneyCell(r, 5, report.totals.debit);
+  moneyCell(r, 6, report.totals.credit);
 
-  // ---- สรุปการประมวลผล ----
+  r += 3; // ต้นฉบับเว้นสองแถวระหว่าง "รวม" กับ "รวมทั้งสิ้น"
+  ws.getCell(r, 1).value = 'รวมทั้งสิ้น';
+  ws.getCell(r, 2).value = report.totals.rowCount;
+  ws.getCell(r, 3).value = 'รายการ';
+  ws.getCell(r, 4).value = 1;
+  moneyCell(r, 5, report.totals.debit);
+  moneyCell(r, 6, report.totals.credit);
+
   r += 1;
-  const note = (label, value) => {
-    r += 1;
-    ws.getCell(`D${r}`).value = label;
-    ws.getCell(`D${r}`).font = FONT;
-    ws.getCell(`E${r}`).value = value;
-    ws.getCell(`E${r}`).font = FONT;
-    if (typeof value === 'number') ws.getCell(`E${r}`).numFmt = MONEY;
-  };
-  note('รายการทั้งหมดในรายงาน', report.totals.entryCount);
-  note('จับคู่ได้ (คู่)', report.totals.matchedPairs);
-  note(`เดบิตที่ยังไม่มีคู่ (${report.totals.unmatchedDebitCount} รายการ)`, report.totals.unmatchedDebitTotal);
-  note(`เครดิตที่ไม่มีคู่ (${report.totals.unmatchedCreditCount} รายการ)`, report.totals.unmatchedCreditTotal);
-  note('ยอดยกมา', report.opening.balance);
-  note('ยอดคงเหลือที่คำนวณใหม่', report.totals.closingBalance);
+  textRow(NOTE_1);
+  r += 1;
+  ws.getCell(r, 2).value = NOTE_2;
+  r += 1;
+  ws.getCell(r, 2).value = STATUS_NOTE.trim();
+
+  // ---- สรุปการจับคู่ (ส่วนเพิ่มจากต้นฉบับ) ----
+  r += 2;
+  const summary = [
+    ['รายการทั้งหมดในรายงานต้นฉบับ', report.totals.entryCount],
+    ['จับคู่ได้ (คู่)', report.totals.matchedPairs],
+    [`เดบิตที่ยังไม่มีคู่ (${report.totals.unmatchedDebitCount} รายการ)`, report.totals.unmatchedDebitTotal],
+    [`เครดิตที่ไม่มีคู่ (${report.totals.unmatchedCreditCount} รายการ)`, report.totals.unmatchedCreditTotal],
+    ['ยอดยกมา', report.opening.balance],
+    ['ยอดคงเหลือที่คำนวณใหม่', report.totals.closingBalance],
+  ];
   if (report.totals.reportedClosing !== null && report.totals.reportedClosing !== undefined) {
-    note('ยอดคงเหลือตามรายงานต้นฉบับ', report.totals.reportedClosing);
+    summary.push(['ยอดคงเหลือตามรายงานต้นฉบับ', report.totals.reportedClosing]);
+  }
+  summary.push(['แหล่งข้อมูล', report.header.sourceName]);
+  summary.push(['วันที่พิมพ์', report.header.printedAt]);
+
+  for (const [label, value] of summary) {
+    r += 1;
+    ws.getCell(r, 1).value = label;
+    if (typeof value === 'number') moneyCell(r, 5, value);
+    else ws.getCell(r, 5).value = value;
   }
 
   for (const w of report.warnings) {
-    r += 2;
-    ws.mergeCells(span(r));
-    const cell = ws.getCell(`A${r}`);
-    cell.value = `หมายเหตุ: ${w}`;
-    cell.font = { name: 'Tahoma', size: 9, italic: true, color: { argb: 'FF9A6700' } };
-    cell.alignment = { wrapText: true };
+    r += 1;
+    ws.getCell(r, 1).value = `หมายเหตุ: ${w}`;
   }
 
-  if (lastDataRow >= firstDataRow) {
-    ws.autoFilter = {
-      from: { row: headerRowNo, column: 1 },
-      to: { row: lastDataRow, column: lastCol },
-    };
-  }
+  // ตั้งความกว้างคอลัมน์ท้ายสุด เพื่อให้ค่าติดไปกับคอลัมน์ที่มีเซลล์อยู่จริงแล้ว
+  WIDTHS.forEach((w, i) => {
+    if (w) ws.getColumn(i + 1).width = w;
+  });
 
   const buffer = await wb.xlsx.writeBuffer();
   return Buffer.from(buffer);
+}
+
+/** ชื่อชีตตามต้นฉบับ ถ้าใช้ไม่ได้ค่อยถอยไปใช้เลขที่บัญชี */
+function sheetName(report) {
+  const raw = report.header.sheetName || report.opening.accountCode || 'รายงาน';
+  return raw.replace(/[[\]:*?/\\]/g, '').slice(0, 31) || 'รายงาน';
+}
+
+/**
+ * ต้นฉบับเก็บวันที่เป็นวันที่จริงโดยใช้ปี พ.ศ. ตรงๆ (เช่น 2569-01-06)
+ * จึงต้องสร้างกลับแบบเดียวกัน ไม่งั้นรูปแบบ mm-dd-yy จะโชว์ปี ค.ศ.
+ */
+function buddhistDate(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+  if (!m) return null;
+  return new Date(Date.UTC(Number(m[1]) + 543, Number(m[2]) - 1, Number(m[3])));
 }
 
 module.exports = { exportExcel };

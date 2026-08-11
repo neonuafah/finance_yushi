@@ -57,7 +57,7 @@ function buildReport(job) {
     columns: COLUMNS,
     header: {
       company: meta.company || '',
-      title: `${meta.reportTitle || 'รายงานแยกประเภททั่วไป'} — รายการเงินทดรองจ่ายที่ยังไม่มีคู่`,
+      title: `${meta.reportTitle || 'รายงานแยกประเภททั่วไป'} — รายการเงินทดลองจ่ายที่ยังไม่มีคู่`,
       periodLine: meta.periodLine || '',
       accountLine: meta.accountLine || '',
       printedAt: `วันที่พิมพ์ : ${thaiToday()}`,

@@ -16,7 +16,7 @@ const FONT_BOLD = { name: 'Tahoma', size: 10, bold: true };
 async function exportExcel(job) {
   const report = buildReport(job);
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'ระบบจับคู่เงินทดรองจ่าย';
+  wb.creator = 'ระบบจับคู่เงินทดลองจ่าย';
   wb.created = new Date();
 
   const ws = wb.addWorksheet('รายการที่ยังไม่มีคู่', {

@@ -30,7 +30,7 @@ function check(label, ok, detail = '') {
   check('GET /api/strategies', Array.isArray(strategies.strategies) && strategies.strategies.length > 0);
 
   const index = await fetch(`${base}/`);
-  check('GET / (หน้าเว็บ)', index.ok && (await index.text()).includes('จับคู่เงินทดรองจ่าย'));
+  check('GET / (หน้าเว็บ)', index.ok && (await index.text()).includes('จับคู่เงินทดลองจ่าย'));
 
   const form = new FormData();
   form.append('file', new Blob([fs.readFileSync(file)]), path.basename(file));

@@ -38,7 +38,7 @@ function exportPdf(job) {
       info: {
         Title: report.header.title,
         Author: report.header.company,
-        Creator: 'ระบบจับคู่เงินทดรองจ่าย',
+        Creator: 'ระบบจับคู่เงินทดลองจ่าย',
       },
     });
 

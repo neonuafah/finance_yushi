@@ -197,7 +197,17 @@ function matchEntries(entries, options = {}) {
     runPass(strategy, (c, cs) => pick(c, cs, false));
   };
 
-  const refsOf = (c) => c.voucherRefs.filter((ref) => ref !== c.voucher);
+  /**
+   * เลขเอกสารที่คำอธิบายฝั่งเครดิตอ้างถึง (ไม่นับเลขใบสำคัญของตัวเอง)
+   * นอกจากเลขที่รู้จักว่าเป็นใบสำคัญแล้ว ยังรับเลขอื่นที่ตรงกับช่องใบสำคัญของรายการเดบิตจริง
+   * เช่น "RR6903005-IV6905017-โอนปิดต้นทุน..." คู่กับใบสำคัญ RR6903005 ของสมุดซื้อ
+   * — คำนำหน้าที่ไม่ได้อยู่ในรายการ VOUCHER_PREFIXES จึงยังจับคู่ได้ ตราบใดที่มีรายการ
+   * เดบิตใช้เลขนั้นเป็นใบสำคัญอยู่จริง
+   */
+  const refsOf = (c) =>
+    c.allRefs.filter(
+      (ref) => ref !== c.voucher && (c.voucherRefs.includes(ref) || byVoucher.has(ref)),
+    );
 
   // 1) อ้างเลขใบสำคัญตรงกันและยอดตรงกันพอดี
   runChronological(byKey.voucherExact, (c, cs, ordered) => {

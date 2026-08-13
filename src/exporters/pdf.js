@@ -92,6 +92,7 @@ function exportPdf(job) {
       printer.dataRow(item);
     }
     printer.footer();
+    printer.summaryPage();
 
     doc.end();
   });
@@ -196,7 +197,26 @@ function createPrinter(doc, report) {
     line += 1;
   };
 
-  /** ท้ายรายงาน: รวม / รวมทั้งสิ้น / หมายเหตุ / จบรายงาน / สรุปการจับคู่ */
+  /**
+   * หน้าเปล่าสำหรับส่วนที่เพิ่มจากรายงานต้นฉบับ — มีแค่หัวกระดาษกับเลขหน้า
+   * ไม่มีหัวตาราง/ยอดยกมา เพราะไม่ใช่หน้ารายการ
+   */
+  const plainPage = () => {
+    doc.addPage();
+    doc.font('regular').fontSize(FONT_SIZE).fillColor('#000');
+    pageNo += 1;
+    line = 0;
+
+    at(X.date, report.header.company);
+    at(X.pageLabel, 'หน้า :');
+    atRight(X.pageNoR, String(pageNo));
+    line += 1;
+
+    at(X.date, `${report.header.title}   (${report.header.subtitle})`);
+    line += 2;
+  };
+
+  /** ท้ายรายงาน: รวม / รวมทั้งสิ้น / หมายเหตุ / จบรายงาน */
   const footer = () => {
     const t = report.totals;
     ensureLine(12);
@@ -226,9 +246,15 @@ function createPrinter(doc, report) {
     line += 2;
 
     at(X.date, '>>>>  จบรายงาน  <<<<');
-    line += 2;
+    line += 1;
+  };
 
-    // ---- สรุปการจับคู่ (ส่วนเพิ่มจากต้นฉบับ) ----
+  /**
+   * สรุปการจับคู่ (ส่วนเพิ่มจากต้นฉบับ) — แยกขึ้นหน้าใหม่เสมอ
+   * เพื่อให้ตัดหน้าสุดท้ายทิ้งแล้วเหลือรายงานที่หน้าตาเหมือนต้นฉบับล้วนๆ ได้
+   */
+  const summaryPage = () => {
+    const t = report.totals;
     const summary = [
       ['รายการทั้งหมดในรายงานต้นฉบับ', String(t.entryCount)],
       ['จับคู่ได้', `${t.matchedPairs} คู่`],
@@ -241,18 +267,19 @@ function createPrinter(doc, report) {
       summary.push(['ยอดคงเหลือตามรายงานต้นฉบับ', formatAmount(t.reportedClosing) || '0.00']);
     }
     summary.push(['แหล่งข้อมูล', report.header.sourceName]);
+    summary.push(['วันที่พิมพ์', report.header.printedAt]);
 
-    ensureLine(summary.length + report.warnings.length + 1);
+    plainPage();
     at(X.date, 'สรุปการจับคู่');
     line += 1;
     for (const [label, value] of summary) {
-      ensureLine();
+      if (line + 1 > LINES_PER_PAGE) plainPage();
       at(X.desc, label, 200);
       atRight(X.creditR, value);
       line += 1;
     }
     for (const w of report.warnings) {
-      ensureLine();
+      if (line + 1 > LINES_PER_PAGE) plainPage();
       at(X.date, `หมายเหตุ: ${w}`, PAGE_W - X.date - 8);
       line += 1;
     }
@@ -265,7 +292,7 @@ function createPrinter(doc, report) {
     line += 1;
   };
 
-  return { newPage, ensureLine, dataRow, footer };
+  return { newPage, ensureLine, dataRow, footer, summaryPage };
 }
 
 function registerFonts(doc) {

@@ -135,11 +135,36 @@ async function exportExcel(job) {
   r += 1;
   ws.getCell(r, 2).value = STATUS_NOTE.trim();
 
-  // ---- สรุปการจับคู่ (ส่วนเพิ่มจากต้นฉบับ) ----
-  r += 2;
+  // ตั้งความกว้างคอลัมน์ท้ายสุด เพื่อให้ค่าติดไปกับคอลัมน์ที่มีเซลล์อยู่จริงแล้ว
+  WIDTHS.forEach((w, i) => {
+    if (w) ws.getColumn(i + 1).width = w;
+  });
+
+  addSummarySheet(wb, report);
+
+  const buffer = await wb.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
+/**
+ * สรุปการจับคู่ (ส่วนเพิ่มจากต้นฉบับ) — แยกเป็นชีตต่างหาก
+ * เพื่อให้ชีตรายงานเหมือนต้นฉบับล้วนๆ และลบ/ไม่พิมพ์ชีตสรุปทิ้งได้ถ้าไม่ต้องการ
+ */
+function addSummarySheet(wb, report) {
+  const ws = wb.addWorksheet('สรุปการจับคู่');
+  ws.getColumn(1).width = 42;
+  ws.getColumn(2).width = 18;
+
+  let r = 0;
+  ws.getCell((r += 1), 1).value = report.header.company;
+  ws.getCell((r += 1), 1).value = `${report.header.title}   (${report.header.subtitle})`;
+  ws.getCell((r += 1), 1).value = report.header.accountLine || '';
+  r += 1;
+  ws.getCell((r += 1), 1).value = 'สรุปการจับคู่';
+
   const summary = [
-    ['รายการทั้งหมดในรายงานต้นฉบับ', report.totals.entryCount],
-    ['จับคู่ได้ (คู่)', report.totals.matchedPairs],
+    ['รายการทั้งหมดในรายงานต้นฉบับ', report.totals.entryCount, '#,##0'],
+    ['จับคู่ได้ (คู่)', report.totals.matchedPairs, '#,##0'],
     [`เดบิตที่ยังไม่มีคู่ (${report.totals.unmatchedDebitCount} รายการ)`, report.totals.unmatchedDebitTotal],
     [`เครดิตที่ไม่มีคู่ (${report.totals.unmatchedCreditCount} รายการ)`, report.totals.unmatchedCreditTotal],
     ['ยอดยกมา', report.opening.balance],
@@ -151,25 +176,21 @@ async function exportExcel(job) {
   summary.push(['แหล่งข้อมูล', report.header.sourceName]);
   summary.push(['วันที่พิมพ์', report.header.printedAt]);
 
-  for (const [label, value] of summary) {
+  for (const [label, value, fmt] of summary) {
     r += 1;
     ws.getCell(r, 1).value = label;
-    if (typeof value === 'number') moneyCell(r, 5, value);
-    else ws.getCell(r, 5).value = value;
+    const cell = ws.getCell(r, 2);
+    cell.value = value;
+    if (typeof value === 'number') {
+      cell.numFmt = fmt || ACC_FMT;
+      cell.font = FONT;
+    }
   }
 
   for (const w of report.warnings) {
-    r += 1;
+    r += 2;
     ws.getCell(r, 1).value = `หมายเหตุ: ${w}`;
   }
-
-  // ตั้งความกว้างคอลัมน์ท้ายสุด เพื่อให้ค่าติดไปกับคอลัมน์ที่มีเซลล์อยู่จริงแล้ว
-  WIDTHS.forEach((w, i) => {
-    if (w) ws.getColumn(i + 1).width = w;
-  });
-
-  const buffer = await wb.xlsx.writeBuffer();
-  return Buffer.from(buffer);
 }
 
 /** ชื่อชีตตามต้นฉบับ ถ้าใช้ไม่ได้ค่อยถอยไปใช้เลขที่บัญชี */

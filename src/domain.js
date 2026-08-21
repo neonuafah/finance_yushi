@@ -182,6 +182,32 @@ function buildEntry(raw, lineNo) {
   };
 }
 
+/**
+ * ทิศทางของคอลัมน์ "ยอดคงเหลือ" ในรายงาน
+ *  +1 = ยอดคงเหลือเดินตามเดบิต (บัญชีฝั่งสินทรัพย์ เช่น 116-5100 เงินทดลองจ่าย)
+ *  -1 = ยอดคงเหลือเดินตามเครดิต (บัญชีฝั่งหนี้สิน เช่น 217-3999 ค่าใช้จ่ายค้างจ่ายอื่นๆ
+ *       ที่พิมพ์ยอดค้างจ่ายเป็นเลขบวก)
+ *
+ * ตัดสินจากตัวรายงานเอง: ไล่ยอดสะสมทั้งสองทางแล้วนับว่าทางไหนตรงกับเลขในคอลัมน์มากกว่ากัน
+ * เสมอกันหรือไม่มีข้อมูลให้ถือเป็น +1 (พฤติกรรมเดิม)
+ */
+function detectBalanceSign(entries, openingBalance = 0) {
+  let byDebit = round2(openingBalance);
+  let byCredit = round2(openingBalance);
+  let debitHits = 0;
+  let creditHits = 0;
+
+  for (const e of entries) {
+    byDebit = round2(byDebit + e.debit - e.credit);
+    byCredit = round2(byCredit + e.credit - e.debit);
+    if (e.reportedBalance === null || e.reportedBalance === undefined) continue;
+    if (nearlyEqual(byDebit, e.reportedBalance)) debitHits += 1;
+    if (nearlyEqual(byCredit, e.reportedBalance)) creditHits += 1;
+  }
+
+  return creditHits > debitHits ? -1 : 1;
+}
+
 /** แถวเปิดบัญชี เช่น "116-5100 | เงินทดลองจ่าย | ... | 221,520.00" */
 const ACCOUNT_ROW_RE = /^\d{3}-\d{3,5}$/;
 
@@ -218,6 +244,7 @@ module.exports = {
   extractRefs,
   normalizeVoucher,
   buildEntry,
+  detectBalanceSign,
   isAccountRow,
   isDocumentCode,
   isFooterRow,

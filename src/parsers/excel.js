@@ -1,7 +1,7 @@
 'use strict';
 
 const ExcelJS = require('exceljs');
-const { buildEntry, parseAmount, isAccountRow, isFooterRow } = require('../domain');
+const { buildEntry, parseAmount, isAccountRow, isFooterRow, detectBalanceSign } = require('../domain');
 
 /** ป้ายหัวคอลัมน์ที่ใช้ระบุแถวหัวตาราง (ไฟล์จริงสะกด "เดบิต/เดบิท" ไม่ตรงกันได้) */
 const HEADER_TOKENS = ['วันที่', 'สมุด', 'ใบสำคัญ', 'ใบสําคัญ', 'คำอธิบาย', 'คําอธิบาย'];
@@ -102,6 +102,7 @@ async function parseExcel(buffer) {
     accountCode: '',
     accountName: '',
     openingBalance: 0,
+    balanceSign: 1,
     reportedClosingBalance: null,
     footerLines: [],
   };
@@ -184,6 +185,8 @@ async function parseExcel(buffer) {
       break;
     }
   }
+
+  meta.balanceSign = detectBalanceSign(entries, meta.openingBalance);
 
   return { meta, entries, warnings };
 }

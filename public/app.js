@@ -254,7 +254,11 @@ const TABLES = {
     partial: (x) => x.matchState === 'จับคู่บางส่วน',
   },
   pairs: {
-    head: ['จำนวนเงิน', 'เดบิต (จ่ายเงิน)', 'เครดิต (เคลียร์)', 'เกณฑ์'],
+    // ฝั่งไหนคือ "ตั้งยอด" ขึ้นกับประเภทบัญชี — บัญชีหนี้สินตั้งยอดฝั่งเครดิตแล้วเคลียร์ฝั่งเดบิต
+    head: (r) =>
+      r.totals.primaryAnchor === 'credit'
+        ? ['จำนวนเงิน', 'เดบิต (เคลียร์)', 'เครดิต (ตั้งยอด)', 'เกณฑ์']
+        : ['จำนวนเงิน', 'เดบิต (จ่ายเงิน)', 'เครดิต (เคลียร์)', 'เกณฑ์'],
     numCols: [0],
     rows: (r) => r.pairs,
     cells: (x) => [
@@ -301,8 +305,9 @@ function renderTable() {
     rows = rows.filter((x) => JSON.stringify(x).toLowerCase().includes(q));
   }
 
+  const head = typeof conf.head === 'function' ? conf.head(state.result) : conf.head;
   el.dataTable.querySelector('thead').innerHTML =
-    `<tr>${conf.head.map((h, i) => `<th${conf.numCols.includes(i) ? ' class="num"' : ''}>${esc(h)}</th>`).join('')}</tr>`;
+    `<tr>${head.map((h, i) => `<th${conf.numCols.includes(i) ? ' class="num"' : ''}>${esc(h)}</th>`).join('')}</tr>`;
   el.dataTable.querySelector('tbody').innerHTML = rows
     .map((x) => `<tr${conf.partial(x) ? ' class="partial"' : ''}>${conf.cells(x).join('')}</tr>`)
     .join('');

@@ -1,6 +1,6 @@
 'use strict';
 
-const { buildEntry, parseAmount, isAccountRow, isFooterRow } = require('../domain');
+const { buildEntry, parseAmount, isAccountRow, isFooterRow, detectBalanceSign } = require('../domain');
 const { fillDownDates } = require('./excel');
 
 /**
@@ -346,6 +346,7 @@ async function parsePdf(buffer) {
     accountCode: '',
     accountName: '',
     openingBalance: 0,
+    balanceSign: 1,
     reportedClosingBalance: null,
     headerLines: allLines
       .slice(0, headerIdx)
@@ -438,6 +439,8 @@ async function parsePdf(buffer) {
       break;
     }
   }
+
+  meta.balanceSign = detectBalanceSign(entries, meta.openingBalance);
 
   warnings.push(
     'อ่านจากไฟล์ PDF: คำอธิบายถูกตัดตามความกว้างคอลัมน์ของรายงานต้นฉบับ หากต้องการคำอธิบายเต็มแนะนำให้อัปโหลดไฟล์ Excel',

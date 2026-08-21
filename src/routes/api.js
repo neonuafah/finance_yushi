@@ -39,7 +39,11 @@ function readOptions(input) {
 
 /** ประกอบผลลัพธ์ที่ส่งกลับให้หน้าเว็บ (ตัดฟิลด์ภายในที่ไม่ได้ใช้ออก) */
 function toResponse(job) {
-  const { rows: outstanding, closingBalance } = withRunningBalance(job.meta.openingBalance, job.outstanding);
+  const { rows: outstanding, closingBalance } = withRunningBalance(
+    job.meta.openingBalance,
+    job.outstanding,
+    job.meta.balanceSign,
+  );
   return {
     jobId: job.id,
     originalName: job.originalName,
@@ -52,6 +56,7 @@ function toResponse(job) {
       accountCode: job.meta.accountCode,
       accountName: job.meta.accountName,
       openingBalance: job.meta.openingBalance,
+      balanceSign: job.meta.balanceSign,
       reportedClosingBalance: job.meta.reportedClosingBalance,
       pages: job.meta.pages,
     },
@@ -94,7 +99,11 @@ function slimOutstanding(r) {
 /** ประมวลผลรายการที่แยกไว้แล้วด้วยตัวเลือกที่กำหนด แล้วเก็บผลลง store + MySQL */
 async function runMatch(job, options) {
   const result = matchEntries(job.entries, options);
-  const { closingBalance } = withRunningBalance(job.meta.openingBalance, result.outstanding);
+  const { closingBalance } = withRunningBalance(
+    job.meta.openingBalance,
+    result.outstanding,
+    job.meta.balanceSign,
+  );
 
   Object.assign(job, {
     options: result.options,

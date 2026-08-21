@@ -34,18 +34,22 @@ async function parseFile(file) {
 async function run(file) {
   console.log(`\n=== ${path.basename(file)} ===`);
   const { meta, entries, warnings } = await parseFile(file);
-  console.log(`  อ่านได้ ${entries.length} รายการ | ยอดยกมา ${meta.openingBalance} | ยอดปิดตามรายงาน ${meta.reportedClosingBalance}`);
+  const sign = meta.balanceSign || 1;
+  console.log(
+    `  อ่านได้ ${entries.length} รายการ | ยอดยกมา ${meta.openingBalance} | ยอดปิดตามรายงาน ${meta.reportedClosingBalance}` +
+      ` | ยอดคงเหลือเดินตาม${sign < 0 ? 'เครดิต (บัญชีฝั่งหนี้สิน)' : 'เดบิต (บัญชีฝั่งสินทรัพย์)'}`,
+  );
   for (const w of warnings) console.log(`  หมายเหตุ: ${w}`);
 
   check('อ่านรายการได้', entries.length > 0);
   check('พบเลขที่บัญชี', Boolean(meta.accountCode), meta.accountCode);
 
-  // เดบิตรวม - เครดิตรวม + ยอดยกมา ต้องเท่ากับยอดปิดของรายงาน
+  // ยอดยกมา + ผลต่างเดบิต/เครดิต (ตามทิศทางของบัญชี) ต้องเท่ากับยอดปิดของรายงาน
   const totalDebit = round2(entries.reduce((s, e) => s + e.debit, 0));
   const totalCredit = round2(entries.reduce((s, e) => s + e.credit, 0));
-  const derived = round2(meta.openingBalance + totalDebit - totalCredit);
+  const derived = round2(meta.openingBalance + sign * (totalDebit - totalCredit));
   check(
-    'ยอดยกมา + เดบิต - เครดิต = ยอดปิดตามรายงาน',
+    sign < 0 ? 'ยอดยกมา + เครดิต - เดบิต = ยอดปิดตามรายงาน' : 'ยอดยกมา + เดบิต - เครดิต = ยอดปิดตามรายงาน',
     meta.reportedClosingBalance === null || Math.abs(derived - meta.reportedClosingBalance) < 0.005,
     `${derived} vs ${meta.reportedClosingBalance}`,
   );
@@ -63,7 +67,7 @@ async function run(file) {
   const balances = [];
   for (const opts of [{}, { jobPartial: true }, { amountUnique: true }, { jobPartial: true, amountUnique: true }]) {
     const res = matchEntries(entries, opts);
-    const { closingBalance } = withRunningBalance(meta.openingBalance, res.outstanding);
+    const { closingBalance } = withRunningBalance(meta.openingBalance, res.outstanding, sign);
     balances.push(closingBalance);
     console.log(
       `  เกณฑ์ ${JSON.stringify(opts).padEnd(40)} จับคู่ ${String(res.totals.matchedPairs).padStart(4)} คู่ | ` +
@@ -93,7 +97,7 @@ async function run(file) {
 
   // ออกไฟล์จริง
   const res = matchEntries(entries);
-  const { closingBalance } = withRunningBalance(meta.openingBalance, res.outstanding);
+  const { closingBalance } = withRunningBalance(meta.openingBalance, res.outstanding, sign);
   Object.assign(job, res, { closingBalance });
 
   fs.mkdirSync(OUT_DIR, { recursive: true });

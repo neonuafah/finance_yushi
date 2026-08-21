@@ -36,7 +36,7 @@ function thaiToday() {
  */
 function buildReport(job) {
   const { meta } = job;
-  const { rows, closingBalance } = withRunningBalance(meta.openingBalance, job.outstanding);
+  const { rows, closingBalance } = withRunningBalance(meta.openingBalance, job.outstanding, meta.balanceSign);
 
   const body = rows.map((r) => ({
     lineNo: r.lineNo,
